@@ -9,7 +9,7 @@ pub struct Song {
 }
 
 pub fn list_songs() -> Result<Vec<Song>, String> {
-    let dir = fs::read_dir("src/music")
+    let dir = fs::read_dir("music/")
         .map_err(|_| "Kunne ikke finde 'music/' mappen!".to_string())?;
 
     let mut names: Vec<String> = dir
@@ -37,15 +37,16 @@ pub fn find_song<'a>(songs: &'a Vec<Song>, number: usize) -> Option<&'a Song> {
 }
 
 pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String> {
-    let path = format!("src/music/{}.mp3", song.name);
+    let path = format!("music/{}.mp3", song.name);
 
     let file = File::open(&path)
         .map_err(|_| format!("Kunne ikke finde filen: {}", path))?;
 
-    let _stream = rodio::OutputStreamBuilder::open_default_stream()
+    let (_stream_keep, stream_handle) = rodio::OutputStream::try_default()
         .map_err(|_| "Kunne ikke åbne lydenheden!".to_string())?;
 
-    let sink = rodio::Sink::connect_new(&_stream.mixer());
+    let sink = rodio::Sink::try_new(&stream_handle)
+        .map_err(|_| "Kunne ikke oprette afspiller!".to_string())?;
 
     let source = Decoder::new(BufReader::new(file))
         .map_err(|_| "Kunne ikke afkode MP3-filen!".to_string())?;
@@ -54,7 +55,7 @@ pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String>
 
 
     println!("Afspiller: {}", song.name);
-    println!("Kommandoer: [P] Pause  [R] Genoptag  [Q] Stop  [D] Afbryd forbindelse  [C] Genopret forbindelse");
+    println!("Kommandoer: [P] Pause  [R] Genoptag  [Q] Stop  [D] Afbryd forbindelse  [C] Genopret forbindelse [+] volume op [-] volume ned");
 
     loop {
         if sink.empty() {
@@ -91,7 +92,17 @@ pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String>
             "C" => {
                 simulate_internet(Arc::clone(&connected), true);
             }
-            _ => println!("Ukendt kommando. Brug P, R, Q, D eller C."),
+            "+" => {
+                let vol = sink.volume();
+                sink.set_volume((vol + 0.1).min(1.0));
+                println!("Lydstyrke: {:.0}%", sink.volume() * 100.0);
+            }
+            "-" => {
+                let vol = sink.volume();
+                sink.set_volume((vol - 0.1).max(0.0));
+                println!("Lydstyrke: {:.0}%", sink.volume() * 100.0);
+            }
+            _ => println!("Ukendt kommando. Brug P, R, Q, D eller C. + og -"),
         }
     }
 
