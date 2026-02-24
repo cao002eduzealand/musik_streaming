@@ -10,7 +10,7 @@ pub struct Song {
 
 pub fn list_songs() -> Result<Vec<Song>, String> {
     let dir = fs::read_dir("music/")
-        .map_err(|_| "Kunne ikke finde 'music/' mappen!".to_string())?;
+        .map_err(|_| "Kunne ikke finde 'music/' mappen".to_string())?;
 
     let mut names: Vec<String> = dir
         .filter_map(|entry| {
@@ -21,7 +21,7 @@ pub fn list_songs() -> Result<Vec<Song>, String> {
         .collect();
 
     if names.is_empty() {
-        return Err("Ingen .mp3 filer fundet i 'music/' mappen!".to_string());
+        panic!("Ingen .mp3 filer fundet i 'music/' mappen");
     }
 
     names.sort();
@@ -43,23 +43,31 @@ pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String>
         .map_err(|_| format!("Kunne ikke finde filen: {}", path))?;
 
     let (_stream_keep, stream_handle) = rodio::OutputStream::try_default()
-        .map_err(|_| "Kunne ikke åbne lydenheden!".to_string())?;
+        .map_err(|_| "Kunne ikke åbne lydenheden".to_string())?;
 
     let sink = rodio::Sink::try_new(&stream_handle)
-        .map_err(|_| "Kunne ikke oprette afspiller!".to_string())?;
+        .map_err(|_| "Kunne ikke oprette afspiller".to_string())?;
 
     let source = Decoder::new(BufReader::new(file))
-        .map_err(|_| "Kunne ikke afkode MP3-filen!".to_string())?;
+        .map_err(|_| "kunne ikke afkode MP3-filen".to_string())?;
 
     sink.append(source);
 
 
     println!("Afspiller: {}", song.name);
-    println!("Kommandoer: [P] Pause  [R] Genoptag  [Q] Stop  [D] Afbryd forbindelse  [C] Genopret forbindelse [+] volume op [-] volume ned");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    println!("  [P]  Pause");
+    println!("  [R]  Genoptag afspilning");
+    println!("  [Q]  Stop og afslut");
+    println!("  [D]  Simuler afbrudt internetforbindelse");
+    println!("  [C]  Simuler genoprettet internetforbindelse");
+    println!("  [+]  Skru op for lydstyrken");
+    println!("  [-]  Skru ned for lydstyrken");
+    println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
     loop {
         if sink.empty() {
-            println!("Sang færdig!");
+            println!("Sang færdig");
             break;
         }
 
@@ -77,7 +85,7 @@ pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String>
                     sink.play();
                     println!("Genoptager...");
                 } else {
-                    println!("Ingen forbindelse! Genopret forbindelsen først med [C].");
+                    println!("Ingen forbindelse! Genopret forbindelsen først med [C]");
                 }
             }
             "Q" => {
@@ -102,7 +110,8 @@ pub fn play_song(song: &Song, connected: Arc<Mutex<bool>>) -> Result<(), String>
                 sink.set_volume((vol - 0.1).max(0.0));
                 println!("Lydstyrke: {:.0}%", sink.volume() * 100.0);
             }
-            _ => println!("Ukendt kommando. Brug P, R, Q, D eller C. + og -"),
+            _ => println!("Ukendt kommando. Brug P, R, Q, D, C, + eller -"),
+
         }
     }
 
@@ -116,6 +125,6 @@ pub fn simulate_internet(connected: Arc<Mutex<bool>>, status: bool) {
     if status {
         println!("Forbindelse genoprettet! Tryk [R] for at genoptage.");
     } else {
-        println!("Forbindelse afbrudt! Musik sat på pause.");
+        println!("Forbindelse afbrudt! musik sat på pause.");
     }
 }
